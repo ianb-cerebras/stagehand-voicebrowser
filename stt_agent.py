@@ -1,71 +1,84 @@
 import logging
-import json
 import os
-import assemblyai as aai
-from assemblyai.streaming.v3 import (
-    BeginEvent,
-    StreamingClient,
-    StreamingClientOptions,
-    StreamingError,
-    StreamingEvents,
-    StreamingParameters,
-    StreamingSessionParameters,
-    TerminationEvent,
-    TurnEvent,
+from datetime import datetime
+
+from dotenv import load_dotenv
+
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    AutoSubscribe,
+    JobContext,
+    MetricsCollectedEvent,
+    RoomOutputOptions,
+    StopResponse,
+    WorkerOptions,
+    cli,
+    llm,
 )
 
-api_key = os.getenv("ASSEMBLYAI_API_KEY")
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from livekit.plugins import assemblyai
 
-def on_begin(self, event: BeginEvent):
-    logger.info(f"Session started: {event.id}")
+load_dotenv()
 
-def on_turn(self, event: TurnEvent):
-    # Print JSON for Node/TypeScript
-    data = {
-        "type": "transcript",
-        "text": event.transcript,
-        "end_of_turn": event.end_of_turn,
-        "turn_is_formatted": event.turn_is_formatted,
-    }
-    print(json.dumps(data), flush=True)
+logger = logging.getLogger("transcriber")
 
-    # Optionally, set formatting for the next turn
-    if event.end_of_turn and not event.turn_is_formatted:
-        params = StreamingSessionParameters(format_turns=True)
-        self.set_params(params)
-
-def on_terminated(self, event: TerminationEvent):
-    logger.info(f"Session terminated: {event.audio_duration_seconds} seconds of audio processed")
-
-def on_error(self, error: StreamingError):
-    logger.error(f"Error occurred: {error}")
-
-def main():
-    client = StreamingClient(
-        StreamingClientOptions(
-            api_key=api_key,
-            api_host="streaming.assemblyai.com",
+class Transcriber(Agent):
+    def __init__(self):
+        super().__init__(
+            instructions="not-needed",
+            stt=assemblyai.STT(),
         )
+        # Create transcripts directory if it doesn't exist
+        self.transcripts_dir = "transcripts"
+        os.makedirs(self.transcripts_dir, exist_ok=True)
+        
+        # Create a timestamped transcript file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.transcript_file = os.path.join(self.transcripts_dir, f"transcript_{timestamp}.txt")
+        
+        # Write header to transcript file
+        with open(self.transcript_file, "w") as f:
+            f.write(f"LiveKit AssemblyAI Transcription Session\n")
+            f.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("-" * 50 + "\n\n")
+
+    async def on_user_turn_completed(self, chat_ctx: llm.ChatContext, new_message: llm.ChatMessage):
+        # Get the transcript
+        user_transcript = new_message.text_content
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        # Log to console
+        logger.info(f"[{timestamp}] -> {user_transcript}")
+        
+        # Save to local file
+        try:
+            with open(self.transcript_file, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] {user_transcript}\n")
+            logger.info(f"Transcript saved to: {self.transcript_file}")
+        except Exception as e:
+            logger.error(f"Error saving transcript: {e}")
+
+        # Needed to stop the agent's default conversational loop
+        raise StopResponse()
+
+
+async def entrypoint(ctx: JobContext):
+    logger.info(f"starting transcriber (speech to text) example, room: {ctx.room.name}")
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    session = AgentSession()
+
+    await session.start(
+        agent=Transcriber(),
+        room=ctx.room,
+        room_output_options=RoomOutputOptions(
+            # If you don't want to send the transcription back to the room, set this to False
+            transcription_enabled=True,
+            audio_enabled=False,
+        ),
     )
-    client.on(StreamingEvents.Begin, on_begin)
-    client.on(StreamingEvents.Turn, on_turn)
-    client.on(StreamingEvents.Termination, on_terminated)
-    client.on(StreamingEvents.Error, on_error)
 
-    client.connect(
-        StreamingParameters(
-            sample_rate=16000,
-            format_turns=True,
-        )
-    )
-    try:
-        client.stream(
-            aai.extras.MicrophoneStream(sample_rate=16000)
-        )
-    finally:
-        client.disconnect(terminate=True)
 
 if __name__ == "__main__":
-    main()
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

@@ -41,9 +41,9 @@ async function recordAudio(filePath: string, duration = 20): Promise<void> {
                 encoding: 'signed-integer',
                 rate: 16000,
                 type: 'mp3',
-                silence: 2,
+                silence: .5,
                 thresholdStart: 0.5,
-                thresholdStop: 0.5,
+                thresholdStop: 0.3,
                 keepSilence: true
             };
 
@@ -161,32 +161,28 @@ async function main({
   await page.goto("https://www.google.com");
 
   let isRunning = true;
+  const audioFilePath = "command.mp3";
+  const recordDuration = 3; // seconds
 
-  // Main voice command loop
   while (isRunning) {
     try {
-      console.log(chalk.blue("🎤 Press Enter to start recording (or type 'exit' to quit)..."));
-      
-      // Wait for user input
-      const userInput = await new Promise<string>((resolve) => {
-        process.stdin.once('data', (data) => {
-          resolve(data.toString().trim());
-        });
-      });
+      console.log(chalk.blue(`🎤 Listening for the next command (recording ${recordDuration}s)...`));
+      await recordAudio(audioFilePath, recordDuration);
 
-      if (userInput.toLowerCase() === 'exit') {
+      const transcribedText = await transcribeAudio(audioFilePath);
+      if (transcribedText && transcribedText.trim().toLowerCase() === "exit") {
         console.log(chalk.green("👋 Goodbye!"));
         isRunning = false;
         break;
       }
 
-      // Handle voice command
-      await handleVoiceCommand(page);
-      
+      await executeAction(transcribedText, page);
+
+      fs.unlinkSync(audioFilePath);
       console.log(chalk.gray("\n--- Ready for next command ---\n"));
-      
     } catch (error) {
       console.error(chalk.red("Error in main loop:"), error);
+      if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
     }
   }
 }

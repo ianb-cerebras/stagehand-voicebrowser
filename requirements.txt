@@ -1,2 +1,5 @@
-# Node.js dependencies (installed via npm)
-# No Python dependencies needed for this approach 
+# LiveKit Demo Dependencies (from the document)
+livekit-agents
+livekit-plugins-assemblyai
+livekit
+python-dotenv 
