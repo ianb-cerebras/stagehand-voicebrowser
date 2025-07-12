@@ -1,0 +1,151 @@
+Metadata-Version: 2.4
+Name: livekit-agents
+Version: 1.1.6
+Summary: A powerful framework for building realtime voice AI agents
+Project-URL: Documentation, https://docs.livekit.io
+Project-URL: Website, https://livekit.io/
+Project-URL: Source, https://github.com/livekit/agents
+Author-email: LiveKit <hello@livekit.io>
+License-Expression: Apache-2.0
+Keywords: AI,agents,audio,livekit,realtime,video,webrtc
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Requires-Dist: aiohttp~=3.10
+Requires-Dist: av>=12.0.0
+Requires-Dist: click~=8.1
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: docstring-parser>=0.16
+Requires-Dist: eval-type-backport
+Requires-Dist: livekit-api<2,>=1.0.2
+Requires-Dist: livekit-protocol~=1.0
+Requires-Dist: livekit<2,>=1.0.9
+Requires-Dist: nest-asyncio>=1.6.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: protobuf>=3
+Requires-Dist: psutil>=7.0
+Requires-Dist: pydantic<3,>=2.0
+Requires-Dist: pyjwt>=2.0
+Requires-Dist: sounddevice>=0.5
+Requires-Dist: types-protobuf<5,>=4
+Requires-Dist: typing-extensions>=4.12
+Requires-Dist: watchfiles>=1.0
+Provides-Extra: anthropic
+Requires-Dist: livekit-plugins-anthropic>=1.1.6; extra == 'anthropic'
+Provides-Extra: assemblyai
+Requires-Dist: livekit-plugins-assemblyai>=1.1.6; extra == 'assemblyai'
+Provides-Extra: aws
+Requires-Dist: livekit-plugins-aws>=1.1.6; extra == 'aws'
+Provides-Extra: azure
+Requires-Dist: livekit-plugins-azure>=1.1.6; extra == 'azure'
+Provides-Extra: baseten
+Requires-Dist: livekit-plugins-baseten>=1.1.6; extra == 'baseten'
+Provides-Extra: bey
+Requires-Dist: livekit-plugins-bey>=1.1.6; extra == 'bey'
+Provides-Extra: bithuman
+Requires-Dist: livekit-plugins-bithuman>=1.1.6; extra == 'bithuman'
+Provides-Extra: cartesia
+Requires-Dist: livekit-plugins-cartesia>=1.1.6; extra == 'cartesia'
+Provides-Extra: clova
+Requires-Dist: livekit-plugins-clova>=1.1.6; extra == 'clova'
+Provides-Extra: codecs
+Requires-Dist: av>=12.0.0; extra == 'codecs'
+Requires-Dist: numpy>=1.26.0; extra == 'codecs'
+Provides-Extra: deepgram
+Requires-Dist: livekit-plugins-deepgram>=1.1.6; extra == 'deepgram'
+Provides-Extra: elevenlabs
+Requires-Dist: livekit-plugins-elevenlabs>=1.1.6; extra == 'elevenlabs'
+Provides-Extra: fal
+Requires-Dist: livekit-plugins-fal>=1.1.6; extra == 'fal'
+Provides-Extra: gladia
+Requires-Dist: livekit-plugins-gladia>=1.1.6; extra == 'gladia'
+Provides-Extra: google
+Requires-Dist: livekit-plugins-google>=1.1.6; extra == 'google'
+Provides-Extra: groq
+Requires-Dist: livekit-plugins-groq>=1.1.6; extra == 'groq'
+Provides-Extra: hedra
+Requires-Dist: livekit-plugins-hedra>=1.1.6; extra == 'hedra'
+Provides-Extra: hume
+Requires-Dist: livekit-plugins-hume>=1.1.6; extra == 'hume'
+Provides-Extra: images
+Requires-Dist: pillow>=10.3.0; extra == 'images'
+Provides-Extra: inworld
+Requires-Dist: livekit-plugins-inworld>=1.1.6; extra == 'inworld'
+Provides-Extra: langchain
+Requires-Dist: livekit-plugins-langchain>=1.1.6; extra == 'langchain'
+Provides-Extra: lmnt
+Requires-Dist: livekit-plugins-lmnt>=1.1.6; extra == 'lmnt'
+Provides-Extra: mcp
+Requires-Dist: mcp<2,>=1.6.0; (python_version >= '3.10') and extra == 'mcp'
+Provides-Extra: neuphonic
+Requires-Dist: livekit-plugins-neuphonic>=1.1.6; extra == 'neuphonic'
+Provides-Extra: nltk
+Requires-Dist: livekit-plugins-nltk>=1.1.6; extra == 'nltk'
+Provides-Extra: openai
+Requires-Dist: livekit-plugins-openai>=1.1.6; extra == 'openai'
+Provides-Extra: playai
+Requires-Dist: livekit-plugins-playai>=1.1.6; extra == 'playai'
+Provides-Extra: resemble
+Requires-Dist: livekit-plugins-resemble>=1.1.6; extra == 'resemble'
+Provides-Extra: rime
+Requires-Dist: livekit-plugins-rime>=1.1.6; extra == 'rime'
+Provides-Extra: sarvam
+Requires-Dist: livekit-plugins-sarvam>=1.1.6; extra == 'sarvam'
+Provides-Extra: silero
+Requires-Dist: livekit-plugins-silero>=1.1.6; extra == 'silero'
+Provides-Extra: speechify
+Requires-Dist: livekit-plugins-speechify>=1.1.6; extra == 'speechify'
+Provides-Extra: speechmatics
+Requires-Dist: livekit-plugins-speechmatics>=1.1.6; extra == 'speechmatics'
+Provides-Extra: spitch
+Requires-Dist: livekit-plugins-spitch>=1.1.6; extra == 'spitch'
+Provides-Extra: tavus
+Requires-Dist: livekit-plugins-tavus>=1.1.6; extra == 'tavus'
+Provides-Extra: turn-detector
+Requires-Dist: livekit-plugins-turn-detector>=1.1.6; extra == 'turn-detector'
+Description-Content-Type: text/markdown
+
+# LiveKit Agents for Python
+
+Realtime framework for production-grade multimodal and voice AI agents.
+
+See [https://docs.livekit.io/agents/](https://docs.livekit.io/agents/) for quickstarts, documentation, and examples.
+
+```python
+from dotenv import load_dotenv
+
+from livekit import agents
+from livekit.agents import AgentSession, Agent, RoomInputOptions
+from livekit.plugins import openai
+
+load_dotenv()
+
+async def entrypoint(ctx: agents.JobContext):
+    await ctx.connect()
+
+    session = AgentSession(
+        llm=openai.realtime.RealtimeModel(
+            voice="coral"
+        )
+    )
+
+    await session.start(
+        room=ctx.room,
+        agent=Agent(instructions="You are a helpful voice AI assistant.")
+    )
+
+    await session.generate_reply(
+        instructions="Greet the user and offer your assistance."
+    )
+
+
+if __name__ == "__main__":
+    agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
+```
