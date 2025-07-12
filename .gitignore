@@ -6,3 +6,4 @@ downloads
 dist
 cache.json
 venv
+venv/
