@@ -1,0 +1,16 @@
+Local Faster-Whisper Transcription Session (Push-to-Talk)
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-14 12:22:01
+Press Enter to start/stop recording
+--------------------------------------------------
+
+[12:22:08] Search for apartments in San Francisco.
+[12:22:12] Hit Enter
+[12:22:20] Hit Enter
+[12:22:29] Click on the Zillow link that says Apartments for Rent in San Francisco
+[12:22:47] Click on Hanover so more West
+[12:22:56] Click on the right arrow button.
+[12:23:07] Scroll down.
+[12:23:20] Click on 51 photos
+[12:23:27] Click on the next button, the arrow.
+[12:23:41] click send a message

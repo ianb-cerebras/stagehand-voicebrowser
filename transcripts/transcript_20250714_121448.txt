@@ -1,0 +1,12 @@
+Local Faster-Whisper Transcription Session (Push-to-Talk)
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-14 12:14:48
+Press Enter to start/stop recording
+--------------------------------------------------
+
+[12:14:54] Hold down the page
+[12:15:07] Unch for drafts.
+[12:16:00] Punch four giraffes.
+[12:16:08] Hit Enter
+[12:16:14] I'll down the page
+[12:16:30] away

@@ -26,6 +26,7 @@
     "livekit-server-sdk": "^2.13.1",
     "mic": "^2.1.2",
     "node-audiorecorder": "^3.0.0",
+    "node-fetch": "^3.3.2",
     "openai": "^5.9.0",
     "stagehand": "^1.0.1",
     "tmp": "^0.2.3",

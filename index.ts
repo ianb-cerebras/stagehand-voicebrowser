@@ -9,6 +9,7 @@ import { OpenAI } from 'openai';
 import { spawn } from "child_process";
 import readline from "readline";
 import path from "path";
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -112,6 +113,8 @@ async function handleVoiceCommand(page: Page, audioFilePath = "command.mp3") {
         const transcribedText = await transcribeAudio(audioFilePath);
         console.log(transcribedText)
 
+        
+
         // 3. Execute Command
         await executeAction(transcribedText, page);
 
@@ -124,7 +127,93 @@ async function handleVoiceCommand(page: Page, audioFilePath = "command.mp3") {
 }
 
 /**
- * Listen to stdout of the Python LiveKit→AssemblyAI transcriber and forward
+ * Classify the user command using Cerebras LLM.
+ * Returns "1" (no scrolling), "2" (scroll up), or "3" (scroll down).
+ */
+async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
+  const apiKey = process.env.CEREBRAS_API_KEY;
+  if (!apiKey) {
+    console.warn('CEREBRAS_API_KEY not set – defaulting to 1');
+    return '1';
+  }
+
+  try {
+    const response = await fetch('https://api.cerebras.ai/v2/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-4-scout-17b-16e-instruct',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a command classifier for a voice-controlled browser. Respond with JSON that matches the provided schema.',
+          },
+          { role: 'user', content: transcript },
+        ],
+        temperature: 0,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'scroll_classifier',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', enum: ['1', '2', '3'] },
+              },
+              required: ['code'],
+              additionalProperties: false,
+            },
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+    let classification: '1' | '2' | '3' = '1';
+    try {
+      let contentStr: string = data?.choices?.[0]?.message?.content || '';
+      // Strip markdown code fences if present
+      const fenceMatch = contentStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (fenceMatch) {
+        contentStr = fenceMatch[1];
+      }
+
+      const trimmed = contentStr.trim();
+
+      // Direct single-digit reply
+      if (trimmed === '1' || trimmed === '2' || trimmed === '3') {
+        classification = trimmed as '1' | '2' | '3';
+        console.log('[Cerebras classification]', classification);
+        return classification;
+      }
+
+      // Attempt JSON parse only if looks like JSON
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && (parsed.code === '1' || parsed.code === '2' || parsed.code === '3')) {
+          classification = parsed.code;
+        }
+      } else {
+        console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
+      }
+    } catch (e) {
+      console.warn('[Cerebras classification] failed to parse JSON', e);
+    }
+    console.log('[Cerebras classification]', classification);
+    return classification;
+  } catch (err) {
+    console.error('Cerebras API error:', err);
+    return '1';
+  }
+}
+
+/**
+ * Locally hosted STT agent
  * each transcript line to Stagehand `page.act()`.
  */
 async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
@@ -164,9 +253,26 @@ async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<v
       if (!match) return;
       const transcribedMessage = match[1].trim();
       console.log(chalk.cyan(`🎙️  Voice command: ${transcribedMessage}`));
-      // Save the transcript as a variable and log it
       let lastTranscript = transcribedMessage;
       console.log(chalk.magenta(`(Saved transcript variable): ${lastTranscript}`));
+
+      // Classify the command using Cerebras
+      const classification = await classifyCommand(lastTranscript);
+
+      if (classification === '3') {
+        console.log(chalk.yellow('Scrolling down 50vh...'));
+        await page.evaluate(() => {
+          window.scrollBy(0, window.innerHeight * 0.5);
+        });
+        return;
+      } else if (classification === '2') {
+        console.log(chalk.yellow('Scrolling up 50vh...'));
+        await page.evaluate(() => {
+          window.scrollBy(0, -window.innerHeight * 0.5);
+        });
+        return;
+      }
+
       if (["exit", "quit", "stop"].includes(transcribedMessage.toLowerCase())) {
         console.log(chalk.green("👋 Voice exit detected – shutting down."));
         rl.close();
@@ -204,7 +310,7 @@ async function main({
 }
 
 /**
- * This is the main function that runs when you do npm run start
+ * This is the main function that runs when you npm run start
  */
 async function run() {
   const stagehand = new Stagehand({

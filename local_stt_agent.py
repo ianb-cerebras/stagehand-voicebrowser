@@ -130,12 +130,10 @@ class LocalSTTAgent:
             
             if transcript:
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                print(f"[{timestamp}] -> {transcript}")
-                
                 # Save to file
                 self.save_transcript(transcript)
-                
-                # Output in format expected by Node.js (to stdout)
+
+                # Output transcript once for Node.js (stdout)
                 print(f"[{timestamp}] -> {transcript}", flush=True)
             else:
                 print("No speech detected")
