@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV=/Users/ianbaime/Desktop/test/venv
+VIRTUAL_ENV=/Users/ianbaime/Library/CloudStorage/OneDrive-Cerebras/Repositories/stagehand-voicebrowser/venv
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

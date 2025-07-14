@@ -6,6 +6,9 @@ import boxen from "boxen";
 import dotenv from "dotenv";
 import fs from 'fs';
 import { OpenAI } from 'openai';
+import { spawn } from "child_process";
+import readline from "readline";
+import path from "path";
 
 dotenv.config();
 
@@ -73,31 +76,6 @@ async function recordAudio(filePath: string, duration = 20): Promise<void> {
 }
 
 /**
- * Use OpenAI's Whisper API to transcribe an audio file to text.
- * @param audioFilePath - Path to the audio file to transcribe.
- * @returns The transcribed text.
- */
-async function transcribeAudio(audioFilePath: string): Promise<string> {
-    try {
-        const client = new OpenAI();
-        const audioFile = fs.createReadStream(audioFilePath);
-        
-        console.log(chalk.yellow("Transcribing audio..."));
-        const transcription = await client.audio.transcriptions.create({
-            model: "whisper-1",
-            file: audioFile,
-            response_format: "text"
-        });
-
-        console.log(chalk.green("Transcribed text:"), transcription);
-        return transcription;
-    } catch (error) {
-        console.error(chalk.red("Error transcribing audio:"), error);
-        throw error;
-    }
-}
-
-/**
  * Execute a given instruction by using Stagehand's AI capabilities.
  * @param commandText - The text instruction (transcribed).
  * @param page - The Stagehand (Playwright) page object.
@@ -145,6 +123,50 @@ async function handleVoiceCommand(page: Page, audioFilePath = "command.mp3") {
     }
 }
 
+/**
+ * Listen to stdout of the Python LiveKit→AssemblyAI transcriber and forward
+ * each transcript line to Stagehand `page.act()`.
+ */
+async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
+  return new Promise((resolve) => {
+    let pyExec = path.join(process.cwd(), "venv", "bin", "python");
+    if (!fs.existsSync(pyExec)) {
+      pyExec = "python3";
+    }
+    console.log(chalk.gray(`Starting transcriber using: ${pyExec}`));
+    const child = spawn(pyExec, ["local_stt_agent.py"], {
+      stdio: ["ignore", "pipe", "inherit"],
+    });
+
+    const rl = readline.createInterface({ input: child.stdout });
+
+    rl.on("line", async (line) => {
+      const match = line.match(/\[\d{2}:\d{2}:\d{2}\] -> (.+)/);
+      if (!match) return;
+      const transcribedMessage = match[1].trim();
+      console.log(chalk.cyan(`🎙️  Voice command: ${transcribedMessage}`));
+      // Save the transcript as a variable and log it
+      let lastTranscript = transcribedMessage;
+      console.log(chalk.magenta(`(Saved transcript variable): ${lastTranscript}`));
+      if (["exit", "quit", "stop"].includes(transcribedMessage.toLowerCase())) {
+        console.log(chalk.green("👋 Voice exit detected – shutting down."));
+        rl.close();
+        child.kill();
+      } else {
+        // Log the transcript variable before using it
+        console.log(chalk.yellow(`[DEBUG] lastTranscript before Stagehand: ${lastTranscript}`));
+        await executeAction(lastTranscript, page);
+      }
+    });
+
+    child.on("exit", async (code) => {
+      console.log(chalk.yellow(`Transcriber exited with code ${code}`));
+      await stagehand.close();
+      resolve();
+    });
+  });
+}
+
 async function main({
   page,
   context,
@@ -154,37 +176,12 @@ async function main({
   context: BrowserContext;
   stagehand: Stagehand;
 }) {
-  console.log(chalk.cyan("🎭 Stagehand Voice Browser"));
-  console.log(chalk.yellow("🚀 Voice input mode started..."));
-  console.log(chalk.gray("Speak your instructions; Stagehand will execute them.\n"));
+  console.log(chalk.cyan("🎭 Stagehand Voice Browser (LiveKit)"));
+  console.log(chalk.yellow("🚀 Say commands; they'll be executed automatically.\n"));
 
   await page.goto("https://www.google.com");
 
-  let isRunning = true;
-  const audioFilePath = "command.mp3";
-  const recordDuration = 3; // seconds
-
-  while (isRunning) {
-    try {
-      console.log(chalk.blue(`🎤 Listening for the next command (recording ${recordDuration}s)...`));
-      await recordAudio(audioFilePath, recordDuration);
-
-      const transcribedText = await transcribeAudio(audioFilePath);
-      if (transcribedText && transcribedText.trim().toLowerCase() === "exit") {
-        console.log(chalk.green("👋 Goodbye!"));
-        isRunning = false;
-        break;
-      }
-
-      await executeAction(transcribedText, page);
-
-      fs.unlinkSync(audioFilePath);
-      console.log(chalk.gray("\n--- Ready for next command ---\n"));
-    } catch (error) {
-      console.error(chalk.red("Error in main loop:"), error);
-      if (fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
-    }
-  }
+  await startPythonVoiceLoop(page, stagehand);
 }
 
 /**

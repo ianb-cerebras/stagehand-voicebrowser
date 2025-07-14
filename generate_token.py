@@ -47,17 +47,18 @@ def generate_token(room_name="demo-room", participant_identity="demo-user", dura
     token = api.AccessToken(
         api_key=api_key,
         api_secret=api_secret,
-        identity=participant_identity,
-        exp=exp
     )
     
+    # Set identity and grants using method chaining
+    token = token.with_identity(participant_identity).with_ttl(timedelta(hours=duration_hours))
+    
     # Grant permissions
-    token.add_grant(
+    token = token.with_grants(api.VideoGrants(
         room_join=True,
         room=room_name,
         can_publish=True,
         can_subscribe=True
-    )
+    ))
     
     return token.to_jwt()
 
