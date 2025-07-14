@@ -1,0 +1,27 @@
+Local Faster-Whisper Transcription Session (Push-to-Talk)
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-13 22:11:23
+Press Enter to start/stop recording
+--------------------------------------------------
+
+[22:11:34] Trick for giraffes.
+[22:11:41] Hit enter
+[22:11:48] Click on the...
+[22:11:53] You're going to have a lot of fun, but you're going to have a lot of fun, too.
+[22:12:01] Click on the Turn the Draft and we'll only one movement.
+[22:12:08] Click play
+[22:12:12] move one match and point the
+[22:12:16] So we've got this giraffe made of magic.
+[22:12:20] same as one, two, three, four.
+[22:12:23] scroll
+[22:12:34] Search for Draftoy.
+[22:12:42] Hit Enter
+[22:12:46] Hit enter
+[22:13:00] Click the search button
+[22:13:08] Let's go down.
+[22:13:29] Let's go down the page.
+[22:13:40] Click on the giraffe felt stuff to link.
+[22:14:14] That's great.
+[22:14:32] Roll.
+[22:14:40] Scroll 100 VW down the page.
+[22:15:01] Click sign in.

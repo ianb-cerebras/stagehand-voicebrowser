@@ -1,0 +1,16 @@
+Local Faster-Whisper Transcription Session
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-13 20:37:14
+--------------------------------------------------
+
+[20:37:17] Search for giraffes.
+[20:37:21] Hit Enter
+[20:37:29] Click on the image of the giraffe.
+[20:37:37] Click on the link to giraffe read park zoo
+[20:37:45] Click on the link to your app, Read Park Zoo.
+[20:37:53] Click on the button
+[20:37:57] Yeah, I gotta fix it, okay, it's good, good enough.
+[20:38:01] Whatever you could do.
+[20:38:05] It works a little bit. I got to take care of the microphone section.
+[20:38:09] No, I'm noticing the mic. It's the mic. It's the issue with the mic.
+[20:38:14] Super fun and

@@ -8,6 +8,7 @@ import wave
 import threading
 import queue
 import numpy as np
+import sys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +17,7 @@ logger = logging.getLogger("local_stt")
 class LocalSTTAgent:
     def __init__(self, model_size="base", device="cpu", compute_type="int8"):
         """
-        Initialize the local speech-to-text agent
+        Initialize the local speech-to-text agent with push-to-talk
         
         Args:
             model_size: Whisper model size ("tiny", "base", "small", "medium", "large-v3")
@@ -34,6 +35,10 @@ class LocalSTTAgent:
         self.rate = 16000
         self.recording = False
         self.audio_queue = queue.Queue()
+        
+        # Push-to-talk state
+        self.is_recording = False
+        self.audio_buffer = []
         
         # Initialize Whisper model
         logger.info(f"Loading Whisper model: {model_size} on {device}")
@@ -53,15 +58,17 @@ class LocalSTTAgent:
         
         # Write header to transcript file
         with open(self.transcript_file, "w") as f:
-            f.write(f"Local Faster-Whisper Transcription Session\n")
+            f.write(f"Local Faster-Whisper Transcription Session (Push-to-Talk)\n")
             f.write(f"Model: {model_size}, Device: {device}, Compute: {compute_type}\n")
             f.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Press Enter to start/stop recording\n")
             f.write("-" * 50 + "\n\n")
 
     def audio_callback(self, in_data, frame_count, time_info, status):
         """Callback for audio recording"""
-        if self.recording:
+        if self.recording and self.is_recording:
             self.audio_queue.put(in_data)
+            self.audio_buffer.append(in_data)
         return (in_data, pyaudio.paContinue)
 
     def start_recording(self):
@@ -90,18 +97,53 @@ class LocalSTTAgent:
             self.stream.stop_stream()
             self.stream.close()
 
-    def record_audio_chunk(self, duration=3):
-        """Record a chunk of audio for the specified duration"""
-        self.start_recording()
-        time.sleep(duration)
-        self.stop_recording()
+    def toggle_recording(self):
+        """Toggle recording on/off"""
+        if not self.is_recording:
+            # Start recording
+            self.is_recording = True
+            self.audio_buffer = []  # Clear previous buffer
+            print("🎤 Recording... (press Enter to stop)", end='', flush=True)
+        else:
+            # Stop recording
+            self.is_recording = False
+            print()  # New line after recording indicator
+            
+            # Process the recorded audio
+            if self.audio_buffer:
+                self.process_recorded_audio()
+
+    def process_recorded_audio(self):
+        """Process the recorded audio buffer"""
+        if not self.audio_buffer:
+            return
+            
+        # Combine all audio chunks
+        audio_data = b''.join(self.audio_buffer)
         
-        # Collect all audio data from queue
-        audio_data = b''
-        while not self.audio_queue.empty():
-            audio_data += self.audio_queue.get()
-        
-        return audio_data
+        if len(audio_data) > 0:
+            # Save audio chunk
+            temp_file = self.save_audio_chunk(audio_data)
+            
+            # Transcribe
+            transcript = self.transcribe_audio(temp_file)
+            
+            if transcript:
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                print(f"[{timestamp}] -> {transcript}")
+                
+                # Save to file
+                self.save_transcript(transcript)
+                
+                # Output in format expected by Node.js (to stdout)
+                print(f"[{timestamp}] -> {transcript}", flush=True)
+            else:
+                print("No speech detected")
+            
+            # Clean up temp file
+            os.remove(temp_file)
+        else:
+            print("No audio recorded")
 
     def save_audio_chunk(self, audio_data, filename="temp_audio.wav"):
         """Save audio data to a WAV file"""
@@ -151,38 +193,29 @@ class LocalSTTAgent:
             except Exception as e:
                 logger.error(f"Error saving transcript: {e}")
 
-    def run_continuous_transcription(self):
-        """Run continuous transcription with push-to-talk"""
+    def run_push_to_talk(self):
+        """Run continuous transcription with short chunks"""
         logger.info("Starting continuous transcription (press Ctrl+C to stop)")
-        logger.info("Speak to transcribe. The system will process audio in chunks.")
+        logger.info("Recording in 3-second chunks and transcribing automatically")
+        print("\n🎤 Continuous Recording Mode")
+        print("Recording in 3-second chunks...")
+        print("Press Ctrl+C to exit\n")
         
         try:
+            # Start recording stream
+            self.start_recording()
+            
+            # Record in continuous chunks
             while True:
-                print("\n🎤 Recording audio chunk (3 seconds)...")
-                audio_data = self.record_audio_chunk(duration=3)
+                # Record for 3 seconds
+                self.audio_buffer = []
+                self.is_recording = True
+                time.sleep(3)
+                self.is_recording = False
                 
-                if audio_data:
-                    # Save audio chunk
-                    temp_file = self.save_audio_chunk(audio_data)
-                    
-                    # Transcribe
-                    transcript = self.transcribe_audio(temp_file)
-                    
-                    if transcript:
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        
-                        # Save to file
-                        self.save_transcript(transcript)
-                        
-                        # Output in format expected by Node.js (to stdout)
-                        print(f"[{timestamp}] -> {transcript}", flush=True)
-                    else:
-                        print("No speech detected in this chunk")
-                    
-                    # Clean up temp file
-                    os.remove(temp_file)
-                else:
-                    print("No audio data recorded")
+                # Process the recorded audio
+                if self.audio_buffer:
+                    self.process_recorded_audio()
                 
                 # Small delay between chunks
                 time.sleep(0.5)
@@ -201,8 +234,8 @@ class LocalSTTAgent:
 
 def main():
     """Main function to run the local STT agent"""
-    print("🎤 Local Faster-Whisper Speech-to-Text Agent")
-    print("=" * 50)
+    print("🎤 Local Faster-Whisper Speech-to-Text Agent (Push-to-Talk)")
+    print("=" * 60)
     
     # You can customize these parameters
     model_size = "base"  # Options: "tiny", "base", "small", "medium", "large-v3"
@@ -216,7 +249,7 @@ def main():
     
     # Create and run the agent
     agent = LocalSTTAgent(model_size=model_size, device=device, compute_type=compute_type)
-    agent.run_continuous_transcription()
+    agent.run_push_to_talk()
 
 if __name__ == "__main__":
-    main() 
+    main()

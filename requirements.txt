@@ -7,5 +7,4 @@ python-dotenv
 # LiveKit Demo Dependencies (from the document)
 livekit-agents
 livekit-plugins-assemblyai
-livekit
-python-dotenv 
+livekit 
