@@ -77,7 +77,6 @@ npm start
 ## ⚙️  Environment Variables
 
 * `CEREBRAS_API_KEY` – **required** for the classifier.
-* `OPENAI_API_KEY` – optional, only used if you proxy Stagehand via OpenAI.
 
 ---
 
