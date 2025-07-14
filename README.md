@@ -13,21 +13,6 @@ Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwrig
 5. **Structured LLM Output** – Uses Cerebras *structured output* (`response_format: json_schema`) for guaranteed JSON replies.
 6. **Cross-platform** – macOS / Linux (requires FFmpeg and Python 3.11).
 
----
-
-## 🖥️  Architecture
-
-```mermaid
-flowchart TD
-  A[Mic input] -->|PCM 16kHz| B(Local STT agent – Python)
-  B -->|Transcript line| C[Node.js index.ts]
-  C -->|Cerebras classify 1‒3| D{1 / 2 / 3}
-  D -- 2 --> E[Playwright scroll up]
-  D -- 3 --> F[Playwright scroll down]
-  D -- 1 --> G[Stagehand page.act()]
-  G --> H[Browser]
-  E & F --> H
-```
 
 ---
 
