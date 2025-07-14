@@ -1,7 +1,0 @@
-Local Faster-Whisper Transcription Session (Push-to-Talk)
-Model: base, Device: cpu, Compute: int8
-Started: 2025-07-14 12:16:53
-Press Enter to start/stop recording
---------------------------------------------------
-
-[12:17:00] Search for apartments in San Francisco.

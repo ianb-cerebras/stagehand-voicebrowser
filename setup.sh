@@ -9,7 +9,6 @@ npm install
 echo "✅ Setup complete!"
 echo ""
 echo "Make sure you have the following environment variables set in your .env file:"
-echo "- OPENAI_API_KEY"
 echo ""
 echo "Then run: npm start"
 echo ""

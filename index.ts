@@ -13,6 +13,11 @@ import fetch from 'node-fetch';
 
 dotenv.config();
 
+// Silence Stagehand's OPENAI_API_KEY warning by providing a dummy key if missing
+if (!process.env.OPENAI_API_KEY) {
+  process.env.OPENAI_API_KEY = "dummy_key"; // prevents init error log
+}
+
 const logger = console; // Simple console logger for TypeScript
 
 // ------------------------------------------------------------
@@ -301,7 +306,7 @@ async function main({
   context: BrowserContext;
   stagehand: Stagehand;
 }) {
-  console.log(chalk.cyan("🎭 Stagehand Voice Browser (LiveKit)"));
+  console.log(chalk.cyan("🎭 Stagehand Voice Browser"));
   console.log(chalk.yellow("🚀 Say commands; they'll be executed automatically.\n"));
 
   await page.goto("https://www.google.com");
