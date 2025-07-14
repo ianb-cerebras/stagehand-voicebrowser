@@ -7,3 +7,6 @@ dist
 cache.json
 venv
 venv/
+transcripts/
+structuredoutput.txt
+command.mp3
