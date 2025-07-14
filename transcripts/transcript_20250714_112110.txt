@@ -1,0 +1,6 @@
+Local Faster-Whisper Transcription Session (Push-to-Talk)
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-14 11:21:10
+Press Enter to start/stop recording
+--------------------------------------------------
+

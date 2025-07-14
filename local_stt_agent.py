@@ -103,11 +103,11 @@ class LocalSTTAgent:
             # Start recording
             self.is_recording = True
             self.audio_buffer = []  # Clear previous buffer
-            print("🎤 Recording... (press Enter to stop)", end='', flush=True)
+            print("🎤 Recording... (press 'm' to stop)", flush=True)
         else:
             # Stop recording
             self.is_recording = False
-            print()  # New line after recording indicator
+            print("🎤 Stopped recording", flush=True)
             
             # Process the recorded audio
             if self.audio_buffer:
@@ -249,7 +249,24 @@ def main():
     
     # Create and run the agent
     agent = LocalSTTAgent(model_size=model_size, device=device, compute_type=compute_type)
-    agent.run_push_to_talk()
+    
+    print("🎤 Local STT Agent Ready")
+    print("Waiting for TOGGLE commands from Node.js...")
+    
+    # Start the recording stream (but not recording yet)
+    agent.start_recording()
+    
+    # Python listens for commands
+    while True:
+        try:
+            command = input().strip()
+            if command == "TOGGLE":
+                agent.toggle_recording()
+        except EOFError:
+            break
+    
+    # Cleanup
+    agent.cleanup()
 
 if __name__ == "__main__":
     main()

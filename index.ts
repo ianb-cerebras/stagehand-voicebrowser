@@ -135,7 +135,26 @@ async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<v
     }
     console.log(chalk.gray(`Starting transcriber using: ${pyExec}`));
     const child = spawn(pyExec, ["local_stt_agent.py"], {
-      stdio: ["ignore", "pipe", "inherit"],
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+
+    // Set up key capture for push-to-talk
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    
+    console.log(chalk.yellow("🎤 Press 'm' to toggle microphone recording"));
+    console.log(chalk.yellow("Press Ctrl+C to exit\n"));
+
+    process.stdin.on('data', (key) => {
+      if (key.toString() === 'm') {
+        console.log(chalk.cyan("🎤 Toggling microphone..."));
+        child.stdin.write('TOGGLE\n');
+      } else if (key.toString() === '\u0003') { // Ctrl+C
+        console.log(chalk.green("👋 Shutting down..."));
+        child.kill();
+        process.exit(0);
+      }
     });
 
     const rl = readline.createInterface({ input: child.stdout });

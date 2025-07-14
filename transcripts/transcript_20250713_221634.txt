@@ -1,0 +1,19 @@
+Local Faster-Whisper Transcription Session (Push-to-Talk)
+Model: base, Device: cpu, Compute: int8
+Started: 2025-07-13 22:16:34
+Press Enter to start/stop recording
+--------------------------------------------------
+
+[22:16:38] Search for apartments in San Francisco
+[22:16:41] Hit enter.
+[22:16:49] Click on the Zillow link.
+[22:17:00] Click on beds and baths.
+[22:17:07] click one plus
+[22:17:14] Use exact match.
+[22:17:32] Click up.
+[22:17:47] Click
+[22:17:51] $3,400 plus 1BD.
+[22:17:58] click on the image
+[22:18:05] Hmm click off
+[22:18:09] 7 photos
+[22:18:17] Click book tour now
