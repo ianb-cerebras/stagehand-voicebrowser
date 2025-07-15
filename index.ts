@@ -322,30 +322,25 @@ function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void
     });
 
     async function handleTranscript(text: string) {
-      console.log(chalk.cyan(`🎙️  Transcript: ${text}`));
+      const trimmed = text.trim();
+      if (trimmed.length < 4) return;     // ignore empty or 1-3 char fragments
 
-      const lower = text.toLowerCase();
+      const lower = trimmed.toLowerCase();
+      
+      // Handle explicit scroll commands first
       if (lower.includes('scroll down')) {
-        console.log(chalk.yellow('Scrolling down 50vh…'));
+        console.log(chalk.yellow('Scrolling down 30vh…'));
         await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.3));
         return;
       }
       if (lower.includes('scroll up')) {
-        console.log(chalk.yellow('Scrolling up 50vh…'));
+        console.log(chalk.yellow('Scrolling up 30vh…'));
         await page.evaluate(() => window.scrollBy(0, -window.innerHeight * 0.3));
         return;
       }
-      // otherwise call classifyCommand as a fallback
-
-      const classification = await classifyCommand(text);
-
-      if (classification === "3") {
-        console.log(chalk.yellow("Scrolling down 50vh…"));
-        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.3));
-      } else if (classification === "2") {
-        console.log(chalk.yellow("Scrolling up 50vh…"));
-        await page.evaluate(() => window.scrollBy(0, -window.innerHeight * 0.3));
-      } else if (["exit", "quit", "stop"].includes(text.toLowerCase())) {
+      
+      // Handle exit commands
+      if (["exit", "quit", "stop"].includes(lower)) {
         console.log(chalk.green("👋 Voice exit detected – shutting down."));
         ws.send("finalize");
         ws.send("done");
@@ -353,9 +348,11 @@ function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void
         await stagehand.close();
         resolve();
         process.exit(0);
-      } else {
-        await executeAction(text, page);
       }
+      
+      // For other commands, skip classification and execute directly with Stagehand
+      console.log(chalk.cyan("🎯 Executing Stagehand action:"), trimmed);
+      await executeAction(trimmed, page);
     }
 
     ws.on("message", async (data) => {
@@ -363,11 +360,17 @@ function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void
       try {
         msg = JSON.parse(data.toString());
       } catch {
+        console.log(chalk.gray("Non-JSON message:"), data.toString());
         return; // ignore non-JSON messages
       }
 
       if (msg.type === "transcript" && msg.is_final) {
-        await handleTranscript(msg.text as string);
+        // Extract text from words array or use text field
+        const text = msg.words?.map((word: any) => word.word).join('') || msg.text || '';
+        if (text.trim().length >= 4) {
+          console.log(chalk.green("🎯 Final transcript:"), text);
+          await handleTranscript(text);
+        }
       }
     });
 
