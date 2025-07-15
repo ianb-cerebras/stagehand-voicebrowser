@@ -327,10 +327,10 @@ function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void
 
       if (classification === "3") {
         console.log(chalk.yellow("Scrolling down 50vh…"));
-        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.5));
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.3));
       } else if (classification === "2") {
         console.log(chalk.yellow("Scrolling up 50vh…"));
-        await page.evaluate(() => window.scrollBy(0, -window.innerHeight * 0.5));
+        await page.evaluate(() => window.scrollBy(0, -window.innerHeight * 0.3));
       } else if (["exit", "quit", "stop"].includes(text.toLowerCase())) {
         console.log(chalk.green("👋 Voice exit detected – shutting down."));
         ws.send("finalize");
