@@ -1,0 +1,89 @@
+Stt
+Migrating From OpenAI Whisper to Cartesia Ink
+
+Copy page
+
+Batch Speech-to-Text: This documentation covers OpenAI SDK compatibility for Cartesia Ink’s batched transcription endpoint.
+
+For real-time transcription, use our Streaming STT endpoint.
+
+Cartesia’s Batch Speech-to-Text API is compatible with OpenAI’s client libraries, enabling seamless migration from OpenAI Whisper.
+
+Endpoints
+Cartesia Native: /stt - Full feature support
+OpenAI Compatible: /audio/transcriptions - Drop-in replacement for Whisper on the OpenAI SDK
+
+Migration Guide for OpenAI SDK
+Replace your OpenAI base URL with https://api.cartesia.ai to use the compatibility layer for Cartesia:
+
+Parameter Support
+Supported Parameters:
+
+file - The audio file to transcribe
+model - Use ink-whisper for Cartesia’s latest model
+language - Input audio language (ISO-639-1 format)
+timestamp_granularities - Include ["word"] to get word-level timestamps
+Response Format: Always returns JSON with transcribed text, duration, language, and optionally word timestamps.
+
+For the complete parameter reference, see our Batch STT API documentation.
+
+Python Example
+from openai import OpenAI
+client = OpenAI(
+    api_key="your-cartesia-api-key",
+    base_url="https://api.cartesia.ai"
+)
+with open("audio.wav", "rb") as audio_file:
+    transcript = client.audio.transcriptions.create(
+        file=audio_file,
+        model="ink-whisper",
+        language="en",
+        timestamp_granularities=["word"]
+    )
+    
+print(transcript.text)
+
+Node.js Example
+import OpenAI from 'openai';
+import fs from 'fs';
+const client = new OpenAI({
+  apiKey: 'your-cartesia-api-key',
+  baseURL: 'https://api.cartesia.ai'
+});
+const transcription = await client.audio.transcriptions.create({
+  file: fs.createReadStream('audio.wav'),
+  model: 'ink-whisper',
+  language: 'en',
+  timestamp_granularities: ['word']
+});
+console.log(transcription.text);
+
+Direct API Usage
+Both endpoints accept identical parameters and return the same JSON response format:
+
+Cartesia Native Endpoint
+curl -X POST https://api.cartesia.ai/stt \
+  -H "X-API-Key: your-cartesia-api-key" \
+  -F "file=@audio.wav" \
+  -F "model=ink-whisper" \
+  -F "language=en" \
+  -F "timestamp_granularities[]=word"
+
+OpenAI-Compatible Endpoint
+curl -X POST https://api.cartesia.ai/audio/transcriptions \
+  -H "X-API-Key: your-cartesia-api-key" \
+  -F "file=@audio.wav" \
+  -F "model=ink-whisper" \
+  -F "language=en" \
+  -F "timestamp_granularities[]=word"
+
+Migration from OpenAI
+To migrate from OpenAI’s Whisper API to Cartesia:
+
+Update the base URL: Change from https://api.openai.com/v1 to https://api.cartesia.ai
+Update authentication: Replace your OpenAI API key with your Cartesia API key
+Update model names: Use ink-whisper instead of OpenAI’s model names
+Keep the same endpoint: Continue using /audio/transcriptions
+Avoid unsupported parameters: Remove prompt, temperature, and response_format parameters
+Use timestamp_granularities (Optional): Add timestamp_granularities: ["word"] to get word-level timestamps
+The core functionality remains the same, with JSON responses containing transcribed text and optional word timestamps.

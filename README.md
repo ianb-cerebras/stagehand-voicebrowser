@@ -1,6 +1,6 @@
 # Stagehand Voice Browser 🚀🗣️
 
-Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwright**, and local **Whisper (faster-whisper)** speech-to-text, with Cerebras LLM calls for lightweight intent classification.
+Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwright**, and **Cartesia Ink Whisper** cloud speech-to-text, with Cerebras LLM calls for lightweight intent classification.
 
 ---
 
@@ -8,7 +8,7 @@ Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwrig
 
 1. **Natural-language browser control** – Say commands like “*Click the sign-in button*” and Stagehand executes them.
 2. **Push-to-Talk** – Hold the **`m`** key to record audio; release to send.
-3. **Local STT** – Runs Whisper on-device (no external STT bills, works offline).
+3. **Cloud STT (Cartesia)** – Fast, accurate transcription via Cartesia’s ink-whisper model.
 4. **Scroll intent classifier** – Cerebras Llama-4 model responds with `1 | 2 | 3` so we can intercept “scroll up / down” instantly.
 5. **Structured LLM Output** – Uses Cerebras *structured output* (`response_format: json_schema`) for guaranteed JSON replies.
 6. **Cross-platform** – macOS / Linux (requires FFmpeg and Python 3.11).
@@ -21,10 +21,9 @@ Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwrig
 | Tool | Version | Notes |
 |------|---------|-------|
 | Node.js | ≥ 18 | Stagehand & Playwright |
-| Python  | 3.11 | faster-whisper agent |
 | FFmpeg  | any  | Audio device capture |
 
-> macOS users: `brew install ffmpeg`.
+(Cartesia handles transcription in the cloud – no Python or local models required.)
 
 ---
 
@@ -34,15 +33,17 @@ Voice-controlled, AI-powered web automation built with **Stagehand**, **Playwrig
 # 1. Clone & install JS deps
 npm install
 
-# 2. Python venv + deps
-python3.11 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+# 2. (Optional) Install FFmpeg if missing – macOS: brew install ffmpeg
 ```
 
 Create a `.env`:
 
 ```bash
-CEREBRAS_API_KEY=your_key_here  # required
+# Cerebras Llama-4 scroll intent classifier
+CEREBRAS_API_KEY=your_cerebras_key
+
+# Cartesia Ink Whisper transcription
+CARTESIA_API_KEY=your_cartesia_key
 ```
 
 ---
@@ -76,4 +77,5 @@ npm start
 
 ## ⚙️  Environment Variables
 
-* `CEREBRAS_API_KEY` – **required** for the classifier.
+* `CEREBRAS_API_KEY` – **required** for the scroll intent classifier.
+* `CARTESIA_API_KEY` – **required** for cloud transcription.

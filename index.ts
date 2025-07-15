@@ -6,10 +6,8 @@ import boxen from "boxen";
 import dotenv from "dotenv";
 import fs from 'fs';
 import { OpenAI } from 'openai';
-import { spawn } from "child_process";
-import readline from "readline";
-import path from "path";
 import fetch from 'node-fetch';
+import path from "path";
 
 dotenv.config();
 
@@ -19,6 +17,41 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const logger = console; // Simple console logger for TypeScript
+
+// ------------------------------------------------------------
+// Cartesia STT via OpenAI-compatible API
+// ------------------------------------------------------------
+
+/**
+ * Transcribe an audio file using Cartesia Ink Whisper model.
+ * Returns the transcribed text.
+ */
+async function transcribeWithCartesia(filePath: string): Promise<string> {
+  const apiKey = process.env.CARTESIA_API_KEY;
+  if (!apiKey) {
+    console.warn("CARTESIA_API_KEY not set – returning empty transcript");
+    return "";
+  }
+
+  try {
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://api.cartesia.ai",
+    } as any);
+
+    const response: any = await client.audio.transcriptions.create({
+      file: fs.createReadStream(filePath) as any,
+      model: "ink-whisper",
+      language: "en",
+      timestamp_granularities: ["word"],
+    } as any);
+
+    return response.text || "";
+  } catch (err) {
+    console.error("Cartesia API error:", err);
+    return "";
+  }
+}
 
 // ------------------------------------------------------------
 // Voice Transcription using Node.js Audio Recording + OpenAI Whisper
@@ -204,7 +237,13 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
           classification = parsed.code;
         }
       } else {
-        console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
+        // Fallback: try to extract a 1/2/3 digit anywhere in the response
+        const digitMatch = trimmed.match(/[123]/);
+        if (digitMatch) {
+          classification = digitMatch[0] as '1' | '2' | '3';
+        } else {
+          console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
+        }
       }
     } catch (e) {
       console.warn('[Cerebras classification] failed to parse JSON', e);
@@ -218,81 +257,112 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
 }
 
 /**
- * Locally hosted STT agent
- * each transcript line to Stagehand `page.act()`.
+ * Placeholder for the new Node-only push-to-talk loop that will use Cartesia.
+ * For now it just logs a message so the application can run without Python.
  */
-async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
-  return new Promise((resolve) => {
-    let pyExec = path.join(process.cwd(), "venv", "bin", "python");
-    if (!fs.existsSync(pyExec)) {
-      pyExec = "python3";
-    }
-    console.log(chalk.gray(`Starting transcriber using: ${pyExec}`));
-    const child = spawn(pyExec, ["local_stt_agent.py"], {
-      stdio: ["pipe", "pipe", "inherit"],
-    });
+function startNodeVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
+  // Key-based push-to-talk like the old Python loop.
+  return new Promise(async (resolve) => {
+    const AudioRecorder = await loadAudioRecorder();
 
-    // Set up key capture for push-to-talk
+    interface ActiveRecording {
+      recorder: any;
+      filePath: string;
+      writeStream: fs.WriteStream;
+    }
+
+    let active: ActiveRecording | null = null;
+
+    // Create tmp directory if missing
+    const tmpDir = path.join(process.cwd(), "tmp");
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.setEncoding('utf8');
-    
+    process.stdin.setEncoding("utf8");
+
     console.log(chalk.yellow("🎤 Press 'm' to toggle microphone recording"));
     console.log(chalk.yellow("Press Ctrl+C to exit\n"));
 
-    process.stdin.on('data', (key) => {
-      if (key.toString() === 'm') {
-        console.log(chalk.cyan("🎤 Toggling microphone..."));
-        child.stdin.write('TOGGLE\n');
-      } else if (key.toString() === '\u0003') { // Ctrl+C
+    process.stdin.on("data", async (key) => {
+      // Exit on Ctrl-C
+      if (key === "\u0003") {
         console.log(chalk.green("👋 Shutting down..."));
-        child.kill();
+        if (active) {
+          active.recorder.stop();
+        }
+        await stagehand.close();
+        resolve();
         process.exit(0);
       }
-    });
 
-    const rl = readline.createInterface({ input: child.stdout });
+      if (key.toString() !== "m") return;
 
-    rl.on("line", async (line) => {
-      const match = line.match(/\[\d{2}:\d{2}:\d{2}\] -> (.+)/);
-      if (!match) return;
-      const transcribedMessage = match[1].trim();
-      console.log(chalk.cyan(`🎙️  Voice command: ${transcribedMessage}`));
-      let lastTranscript = transcribedMessage;
-      console.log(chalk.magenta(`(Saved transcript variable): ${lastTranscript}`));
+      if (!active) {
+        // ----- START recording -----
+        const timestamp = Date.now();
+        const filePath = path.join(tmpDir, `recording_${timestamp}.wav`);
 
-      // Classify the command using Cerebras
-      const classification = await classifyCommand(lastTranscript);
+        const options = {
+          program: "rec",
+          device: null,
+          bits: 16,
+          channels: 1,
+          encoding: "signed-integer",
+          rate: 16000,
+          type: "wav",
+          silence: 0.5,
+          thresholdStart: 0.5,
+          thresholdStop: 0.3,
+          keepSilence: true,
+        };
 
-      if (classification === '3') {
-        console.log(chalk.yellow('Scrolling down 50vh...'));
-        await page.evaluate(() => {
-          window.scrollBy(0, window.innerHeight * 0.5);
-        });
-        return;
-      } else if (classification === '2') {
-        console.log(chalk.yellow('Scrolling up 50vh...'));
-        await page.evaluate(() => {
-          window.scrollBy(0, -window.innerHeight * 0.5);
-        });
-        return;
-      }
+        const recorder = new AudioRecorder(options, console);
+        const writeStream = fs.createWriteStream(filePath);
+        recorder.start().stream().pipe(writeStream);
 
-      if (["exit", "quit", "stop"].includes(transcribedMessage.toLowerCase())) {
-        console.log(chalk.green("👋 Voice exit detected – shutting down."));
-        rl.close();
-        child.kill();
+        active = { recorder, filePath, writeStream };
+        console.log(chalk.cyan("🎤 Recording... press 'm' again to stop"));
       } else {
-        // Log the transcript variable before using it
-        console.log(chalk.yellow(`[DEBUG] lastTranscript before Stagehand: ${lastTranscript}`));
-        await executeAction(lastTranscript, page);
-      }
-    });
+        // ----- STOP recording -----
+        const { recorder, filePath, writeStream } = active;
+        recorder.stop();
 
-    child.on("exit", async (code) => {
-      console.log(chalk.yellow(`Transcriber exited with code ${code}`));
-      await stagehand.close();
-      resolve();
+        // Wait for stream to finish writing
+        await new Promise((res) => writeStream.on("finish", res));
+
+        console.log(chalk.green("Recording complete. Transcribing..."));
+
+        const transcript = await transcribeWithCartesia(filePath);
+        console.log(chalk.cyan(`🎙️  Transcript: ${transcript}`));
+
+        // Classify scroll intent via Cerebras
+        const classification = await classifyCommand(transcript);
+
+        if (classification === "3") {
+          console.log(chalk.yellow("Scrolling down 50vh..."));
+          await page.evaluate(() => {
+            window.scrollBy(0, window.innerHeight * 0.5);
+          });
+        } else if (classification === "2") {
+          console.log(chalk.yellow("Scrolling up 50vh..."));
+          await page.evaluate(() => {
+            window.scrollBy(0, -window.innerHeight * 0.5);
+          });
+        } else if (["exit", "quit", "stop"].includes(transcript.toLowerCase())) {
+          console.log(chalk.green("👋 Voice exit detected – shutting down."));
+          await stagehand.close();
+          resolve();
+          process.exit(0);
+        } else {
+          await executeAction(transcript, page);
+        }
+
+        // Cleanup
+        fs.unlink(filePath, () => {});
+        active = null;
+        console.log(chalk.yellow("🎤 Ready for next command. Press 'm' to record"));
+      }
     });
   });
 }
@@ -311,7 +381,7 @@ async function main({
 
   await page.goto("https://www.google.com");
 
-  await startPythonVoiceLoop(page, stagehand);
+  await startNodeVoiceLoop(page, stagehand);
 }
 
 /**
@@ -347,8 +417,7 @@ async function run() {
   });
   await stagehand.close();
   console.log(
-    `\n🤘 Thanks so much for using Stagehand! Reach out to us on Slack if you have any feedback: ${chalk.blue(
-      "https://stagehand.dev/slack",
+    `\nDemo Complete",
     )}\n`,
   );
 }

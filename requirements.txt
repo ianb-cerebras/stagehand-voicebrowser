@@ -1,10 +1,2 @@
-# Local STT Dependencies
-faster-whisper
-pyaudio
-numpy
-python-dotenv
-
-# LiveKit Demo Dependencies (from the document)
-livekit-agents
-livekit-plugins-assemblyai
-livekit 
+# No Python dependencies required after migrating to Cartesia cloud STT.
+# This file can remain empty unless you add Python scripts in the future. 
