@@ -177,7 +177,7 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
   }
 
   try {
-    const response = await fetch('https://api.cerebras.ai/v2/chat/completions', {
+    const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -213,6 +213,7 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
     });
 
     const data = await response.json();
+    console.log(chalk.gray("[Cerebras raw]"), JSON.stringify(data, null, 2));
     let classification: '1' | '2' | '3' = '1';
     try {
       let contentStr: string = data?.choices?.[0]?.message?.content || '';
@@ -322,6 +323,19 @@ function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void
 
     async function handleTranscript(text: string) {
       console.log(chalk.cyan(`🎙️  Transcript: ${text}`));
+
+      const lower = text.toLowerCase();
+      if (lower.includes('scroll down')) {
+        console.log(chalk.yellow('Scrolling down 50vh…'));
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 0.3));
+        return;
+      }
+      if (lower.includes('scroll up')) {
+        console.log(chalk.yellow('Scrolling up 50vh…'));
+        await page.evaluate(() => window.scrollBy(0, -window.innerHeight * 0.3));
+        return;
+      }
+      // otherwise call classifyCommand as a fallback
 
       const classification = await classifyCommand(text);
 

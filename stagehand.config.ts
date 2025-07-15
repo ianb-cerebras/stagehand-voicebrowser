@@ -12,7 +12,7 @@ const StagehandConfig: ConstructorParams = {
 
   // LLM configuration
   llmClient: new CustomOpenAIClient({
-    modelName: "qwen-3-32b", // better models work better
+    modelName: "llama-3.3-70b", // better models work better
     client: new OpenAI({
       baseURL: "https://api.cerebras.ai/v1",
       apiKey: process.env.CEREBRAS_API_KEY!,
