@@ -42,7 +42,7 @@ Create a `.env`:
 # Cartesia streaming speech-to-text
 CARTESIA_API_KEY=your_cartesia_key
 
-# Cerebras (optional - for Stagehand LLM calls)
+# Cerebras - powers the system
 CEREBRAS_API_KEY=your_cerebras_key
 ```
 
