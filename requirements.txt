@@ -1,2 +1,0 @@
-# No Python dependencies required after migrating to Cartesia cloud STT.
-# This file can remain empty unless you add Python scripts in the future. 
