@@ -6,10 +6,9 @@ import boxen from "boxen";
 import dotenv from "dotenv";
 import fs from 'fs';
 import { OpenAI } from 'openai';
-import { spawn } from "child_process";
-import readline from "readline";
-import path from "path";
 import fetch from 'node-fetch';
+import path from "path";
+import WebSocket from "ws";
 
 dotenv.config();
 
@@ -19,6 +18,41 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const logger = console; // Simple console logger for TypeScript
+
+// ------------------------------------------------------------
+// Cartesia STT via OpenAI-compatible API
+// ------------------------------------------------------------
+
+/**
+ * Transcribe an audio file using Cartesia Ink Whisper model.
+ * Returns the transcribed text.
+ */
+async function transcribeWithCartesia(filePath: string): Promise<string> {
+  const apiKey = process.env.CARTESIA_API_KEY;
+  if (!apiKey) {
+    console.warn("CARTESIA_API_KEY not set – returning empty transcript");
+    return "";
+  }
+
+  try {
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://api.cartesia.ai",
+    } as any);
+
+    const response: any = await client.audio.transcriptions.create({
+      file: fs.createReadStream(filePath) as any,
+      model: "ink-whisper",
+      language: "en",
+      timestamp_granularities: ["word"],
+    } as any);
+
+    return response.text || "";
+  } catch (err) {
+    console.error("Cartesia API error:", err);
+    return "";
+  }
+}
 
 // ------------------------------------------------------------
 // Voice Transcription using Node.js Audio Recording + OpenAI Whisper
@@ -143,7 +177,7 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
   }
 
   try {
-    const response = await fetch('https://api.cerebras.ai/v2/chat/completions', {
+    const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -179,6 +213,7 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
     });
 
     const data = await response.json();
+    console.log(chalk.gray("[Cerebras raw]"), JSON.stringify(data, null, 2));
     let classification: '1' | '2' | '3' = '1';
     try {
       let contentStr: string = data?.choices?.[0]?.message?.content || '';
@@ -204,7 +239,13 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
           classification = parsed.code;
         }
       } else {
-        console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
+        // Fallback: try to extract a 1/2/3 digit anywhere in the response
+        const digitMatch = trimmed.match(/[123]/);
+        if (digitMatch) {
+          classification = digitMatch[0] as '1' | '2' | '3';
+        } else {
+          console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
+        }
       }
     } catch (e) {
       console.warn('[Cerebras classification] failed to parse JSON', e);
@@ -218,81 +259,139 @@ async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
 }
 
 /**
- * Locally hosted STT agent
- * each transcript line to Stagehand `page.act()`.
+ * Placeholder for the new Node-only push-to-talk loop that will use Cartesia.
+ * For now it just logs a message so the application can run without Python.
  */
-async function startPythonVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
-  return new Promise((resolve) => {
-    let pyExec = path.join(process.cwd(), "venv", "bin", "python");
-    if (!fs.existsSync(pyExec)) {
-      pyExec = "python3";
+function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
+  return new Promise(async (resolve) => {
+    const apiKey = process.env.CARTESIA_API_KEY;
+    if (!apiKey) {
+      throw new Error("CARTESIA_API_KEY not set");
     }
-    console.log(chalk.gray(`Starting transcriber using: ${pyExec}`));
-    const child = spawn(pyExec, ["local_stt_agent.py"], {
-      stdio: ["pipe", "pipe", "inherit"],
+
+    const qs = new URLSearchParams({
+      model: "ink-whisper",
+      encoding: "pcm_s16le",
+      sample_rate: "16000",
+    }).toString();
+
+    const ws = new WebSocket(`wss://api.cartesia.ai/stt/websocket?${qs}`, {
+      headers: {
+        "X-API-Key": apiKey,
+        "Cartesia-Version": "2025-04-16",
+      },
     });
 
-    // Set up key capture for push-to-talk
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding('utf8');
-    
-    console.log(chalk.yellow("🎤 Press 'm' to toggle microphone recording"));
-    console.log(chalk.yellow("Press Ctrl+C to exit\n"));
+    ws.on("open", async () => {
+      console.log(chalk.yellow("🎤 Cartesia streaming STT connected. Speak freely (Ctrl+C to exit)"));
 
-    process.stdin.on('data', (key) => {
-      if (key.toString() === 'm') {
-        console.log(chalk.cyan("🎤 Toggling microphone..."));
-        child.stdin.write('TOGGLE\n');
-      } else if (key.toString() === '\u0003') { // Ctrl+C
-        console.log(chalk.green("👋 Shutting down..."));
-        child.kill();
+      const AudioRecorder = await loadAudioRecorder();
+      const recorderOptions = {
+        program: "rec",
+        device: null,
+        bits: 16,
+        channels: 1,
+        encoding: "signed-integer",
+        rate: 16000,
+        type: "raw", // send raw PCM without headers
+        silence: 0,
+      };
+
+      const recorder = new AudioRecorder(recorderOptions, console);
+      const micStream = recorder.start().stream();
+
+      micStream.on("data", (chunk: Buffer) => {
+        ws.send(chunk, { binary: true });
+      });
+
+      // Handle Ctrl+C for graceful shutdown
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.on("data", async (key) => {
+        if (key === "\u0003") {
+          console.log(chalk.green("👋 Shutting down…"));
+          recorder.stop();
+          ws.send("finalize");
+          ws.send("done");
+          ws.close();
+          await stagehand.close();
+          resolve();
+          process.exit(0);
+        }
+      });
+    });
+
+    async function handleTranscript(text: string) {
+      const trimmed = text.trim();
+      if (trimmed.length < 4) return;     // ignore empty or 1-3 char fragments
+
+      const lower = trimmed.toLowerCase();
+      
+      // Handle explicit scroll commands first
+      if (lower.includes('scroll down')) {
+        console.log(chalk.yellow('Scrolling down 30vh…'));
+        await page.evaluate(() => {
+          window.scrollBy({
+            top: window.innerHeight * 0.6,
+            left: 0,
+            behavior: 'smooth'
+          });
+        });
+        return;
+      }
+      if (lower.includes('scroll up')) {
+        console.log(chalk.yellow('Scrolling up 30vh…'));
+        await page.evaluate(() => {
+          window.scrollBy({
+            top: -window.innerHeight * 0.3,
+            left: 0,
+            behavior: 'smooth'
+          });
+        });
+        return;
+      }
+      
+      // Handle exit commands
+      if (["exit", "quit", "stop"].includes(lower)) {
+        console.log(chalk.green("👋 Voice exit detected – shutting down."));
+        ws.send("finalize");
+        ws.send("done");
+        ws.close();
+        await stagehand.close();
+        resolve();
         process.exit(0);
       }
-    });
+      
+      // For other commands, skip classification and execute directly with Stagehand
+      console.log(chalk.cyan("🎯 Executing Stagehand action:"), trimmed);
+      await executeAction(trimmed, page);
+    }
 
-    const rl = readline.createInterface({ input: child.stdout });
-
-    rl.on("line", async (line) => {
-      const match = line.match(/\[\d{2}:\d{2}:\d{2}\] -> (.+)/);
-      if (!match) return;
-      const transcribedMessage = match[1].trim();
-      console.log(chalk.cyan(`🎙️  Voice command: ${transcribedMessage}`));
-      let lastTranscript = transcribedMessage;
-      console.log(chalk.magenta(`(Saved transcript variable): ${lastTranscript}`));
-
-      // Classify the command using Cerebras
-      const classification = await classifyCommand(lastTranscript);
-
-      if (classification === '3') {
-        console.log(chalk.yellow('Scrolling down 50vh...'));
-        await page.evaluate(() => {
-          window.scrollBy(0, window.innerHeight * 0.5);
-        });
-        return;
-      } else if (classification === '2') {
-        console.log(chalk.yellow('Scrolling up 50vh...'));
-        await page.evaluate(() => {
-          window.scrollBy(0, -window.innerHeight * 0.5);
-        });
-        return;
+    ws.on("message", async (data) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(data.toString());
+      } catch {
+        console.log(chalk.gray("Non-JSON message:"), data.toString());
+        return; // ignore non-JSON messages
       }
 
-      if (["exit", "quit", "stop"].includes(transcribedMessage.toLowerCase())) {
-        console.log(chalk.green("👋 Voice exit detected – shutting down."));
-        rl.close();
-        child.kill();
-      } else {
-        // Log the transcript variable before using it
-        console.log(chalk.yellow(`[DEBUG] lastTranscript before Stagehand: ${lastTranscript}`));
-        await executeAction(lastTranscript, page);
+      if (msg.type === "transcript" && msg.is_final) {
+        // Extract text from words array or use text field
+        const text = msg.words?.map((word: any) => word.word).join('') || msg.text || '';
+        if (text.trim().length >= 4) {
+          console.log(chalk.green("🎯 Final transcript:"), text);
+          await handleTranscript(text);
+        }
       }
     });
 
-    child.on("exit", async (code) => {
-      console.log(chalk.yellow(`Transcriber exited with code ${code}`));
-      await stagehand.close();
-      resolve();
+    ws.on("close", () => {
+      console.log(chalk.gray("Cartesia WebSocket closed"));
+    });
+
+    ws.on("error", (err) => {
+      console.error(chalk.red("WebSocket error:"), err);
     });
   });
 }
@@ -311,7 +410,7 @@ async function main({
 
   await page.goto("https://www.google.com");
 
-  await startPythonVoiceLoop(page, stagehand);
+  await startStreamingVoiceLoop(page, stagehand);
 }
 
 /**
@@ -347,8 +446,7 @@ async function run() {
   });
   await stagehand.close();
   console.log(
-    `\n🤘 Thanks so much for using Stagehand! Reach out to us on Slack if you have any feedback: ${chalk.blue(
-      "https://stagehand.dev/slack",
+    `\nDemo Complete",
     )}\n`,
   );
 }

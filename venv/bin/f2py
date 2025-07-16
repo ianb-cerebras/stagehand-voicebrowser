@@ -1,4 +1,4 @@
-#!/Users/ianbaime/Library/CloudStorage/OneDrive-Cerebras/Repositories/stagehand-voicebrowser/venv/bin/python3.11
+#!/Users/ianbaime/Library/CloudStorage/OneDrive-Cerebras/Repositories/stagehand-voicebrowser/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
