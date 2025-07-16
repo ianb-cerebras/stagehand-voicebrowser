@@ -15,7 +15,7 @@ const StagehandConfig: ConstructorParams = {
     modelName: "llama-3.3-70b", // better models work better
     client: new OpenAI({
       baseURL: "https://api.cerebras.ai/v1",
-      apiKey: process.env.CEREBRAS_API_KEY!,
+      apiKey: process.env.CEREBRAS_API_KEY!, //get your key here: https://cloud.cerebras.ai/?utm_source=inferencedocs
     }),
   }),
 

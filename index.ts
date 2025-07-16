@@ -13,7 +13,7 @@ import WebSocket from "ws";
 dotenv.config();
 
 // Silence Stagehand's OPENAI_API_KEY warning by providing a dummy key if missing
-if (!process.env.OPENAI_API_KEY) {
+if (!process.env.OPENAI_API_KEY) { 
   process.env.OPENAI_API_KEY = "dummy_key"; // prevents init error log
 }
 
@@ -30,7 +30,7 @@ const logger = console; // Simple console logger for TypeScript
 async function transcribeWithCartesia(filePath: string): Promise<string> {
   const apiKey = process.env.CARTESIA_API_KEY;
   if (!apiKey) {
-    console.warn("CARTESIA_API_KEY not set – returning empty transcript");
+    console.warn("CARTESIA_API_KEY not set – returning empty transcript"); //get your key herehttps://play.cartesia.ai/sign-up
     return "";
   }
 
@@ -165,103 +165,7 @@ async function handleVoiceCommand(page: Page, audioFilePath = "command.mp3") {
     }
 }
 
-/**
- * Classify the user command using Cerebras LLM.
- * Returns "1" (no scrolling), "2" (scroll up), or "3" (scroll down).
- */
-async function classifyCommand(transcript: string): Promise<'1' | '2' | '3'> {
-  const apiKey = process.env.CEREBRAS_API_KEY;
-  if (!apiKey) {
-    console.warn('CEREBRAS_API_KEY not set – defaulting to 1');
-    return '1';
-  }
 
-  try {
-    const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-4-scout-17b-16e-instruct',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a command classifier for a voice-controlled browser. Respond with JSON that matches the provided schema.',
-          },
-          { role: 'user', content: transcript },
-        ],
-        temperature: 0,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'scroll_classifier',
-            strict: true,
-            schema: {
-              type: 'object',
-              properties: {
-                code: { type: 'string', enum: ['1', '2', '3'] },
-              },
-              required: ['code'],
-              additionalProperties: false,
-            },
-          },
-        },
-      }),
-    });
-
-    const data = await response.json();
-    console.log(chalk.gray("[Cerebras raw]"), JSON.stringify(data, null, 2));
-    let classification: '1' | '2' | '3' = '1';
-    try {
-      let contentStr: string = data?.choices?.[0]?.message?.content || '';
-      // Strip markdown code fences if present
-      const fenceMatch = contentStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-      if (fenceMatch) {
-        contentStr = fenceMatch[1];
-      }
-
-      const trimmed = contentStr.trim();
-
-      // Direct single-digit reply
-      if (trimmed === '1' || trimmed === '2' || trimmed === '3') {
-        classification = trimmed as '1' | '2' | '3';
-        console.log('[Cerebras classification]', classification);
-        return classification;
-      }
-
-      // Attempt JSON parse only if looks like JSON
-      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        const parsed = JSON.parse(trimmed);
-        if (parsed && (parsed.code === '1' || parsed.code === '2' || parsed.code === '3')) {
-          classification = parsed.code;
-        }
-      } else {
-        // Fallback: try to extract a 1/2/3 digit anywhere in the response
-        const digitMatch = trimmed.match(/[123]/);
-        if (digitMatch) {
-          classification = digitMatch[0] as '1' | '2' | '3';
-        } else {
-          console.warn('[Cerebras classification] unexpected format:', trimmed.slice(0,50));
-        }
-      }
-    } catch (e) {
-      console.warn('[Cerebras classification] failed to parse JSON', e);
-    }
-    console.log('[Cerebras classification]', classification);
-    return classification;
-  } catch (err) {
-    console.error('Cerebras API error:', err);
-    return '1';
-  }
-}
-
-/**
- * Placeholder for the new Node-only push-to-talk loop that will use Cartesia.
- * For now it just logs a message so the application can run without Python.
- */
 function startStreamingVoiceLoop(page: Page, stagehand: Stagehand): Promise<void> {
   return new Promise(async (resolve) => {
     const apiKey = process.env.CARTESIA_API_KEY;
